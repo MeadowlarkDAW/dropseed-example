@@ -111,7 +111,7 @@ fn main() {
         Box::new(move |cc| {
             cc.egui_ctx.set_visuals(egui::Visuals::dark());
 
-            Box::new(BasicDawExampleGUI::new(
+            Box::new(DSExampleGUI::new(
                 engine_handle,
                 engine_rx,
                 cpal_stream,
@@ -135,7 +135,7 @@ pub struct EngineState {
     pub effect_rack_state: EffectRackState,
 }
 
-struct BasicDawExampleGUI {
+struct DSExampleGUI {
     engine_handle: DSEngineHandle,
     engine_rx: Receiver<DSEngineEvent>,
 
@@ -144,7 +144,7 @@ struct BasicDawExampleGUI {
 
     sample_rate: SampleRate,
 
-    plugin_list: Vec<ScannedPlugin>,
+    plugin_list: Vec<(ScannedPlugin, String)>,
 
     failed_plugins_text: Vec<(String, String)>,
 
@@ -153,7 +153,7 @@ struct BasicDawExampleGUI {
     current_tab: Tab,
 }
 
-impl BasicDawExampleGUI {
+impl DSExampleGUI {
     fn new(
         engine_handle: DSEngineHandle,
         engine_rx: Receiver<DSEngineEvent>,
@@ -252,7 +252,7 @@ impl BasicDawExampleGUI {
 
                         for new_plugin_res in res.new_plugins.drain(..) {
                             let mut found = None;
-                            for p in self.plugin_list.iter() {
+                            for (p, _) in self.plugin_list.iter() {
                                 if p.rdn() == new_plugin_res.plugin_id.rdn() {
                                     found = Some(p.description.name.clone());
                                     break;
@@ -386,7 +386,16 @@ impl BasicDawExampleGUI {
                     // A request to rescan all plugin directories has finished. Update
                     // the list of available plugins in your UI.
                     PluginScannerEvent::RescanFinished(mut info) => {
-                        self.plugin_list = info.scanned_plugins;
+                        self.plugin_list = info
+                            .scanned_plugins
+                            .iter()
+                            .map(|plugin| {
+                                let display_choice =
+                                    format!("{} ({})", &plugin.description.name, &plugin.format);
+
+                                (plugin.clone(), display_choice)
+                            })
+                            .collect();
 
                         self.failed_plugins_text = info
                             .failed_plugins
@@ -395,122 +404,6 @@ impl BasicDawExampleGUI {
                                 (format!("{}", path.to_string_lossy()), format!("{}", error))
                             })
                             .collect();
-
-                        if let Some(engine_state) = &mut self.engine_state {
-                            let mut index_1 = None;
-                            for (i, p) in self.plugin_list.iter().enumerate() {
-                                if p.rdn() == "app.meadowlark.noise-generator" {
-                                    index_1 = Some(i);
-                                    break;
-                                }
-                            }
-
-                            if index_1.is_none() {
-                                continue;
-                            }
-
-                            /*
-                            let mut index_2 = None;
-                            for (i, p) in self.plugin_list.iter().enumerate() {
-                                if p.rdn() == "com.moist-plugins-gmbh-egui.gain-gui" {
-                                    index_2 = Some(i);
-                                    break;
-                                }
-                            }
-
-                            if index_2.is_none() {
-                                continue;
-                            }
-                            */
-
-                            let req = ModifyGraphRequest {
-                                add_plugin_instances: vec![
-                                    (self.plugin_list[index_1.unwrap()].key.clone(), None),
-                                    /*
-                                    (
-                                        self.plugin_list[index_2.unwrap()].key.clone(),
-                                        None,
-                                    ),
-                                    */
-                                ],
-                                remove_plugin_instances: vec![],
-                                connect_new_edges: vec![
-                                    EdgeReq {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: PluginIDReq::Existing(
-                                            engine_state.graph_in_node_id.clone(),
-                                        ),
-                                        dst_plugin_id: PluginIDReq::Added(0),
-                                        src_channel: 0,
-                                        dst_channel: 0,
-                                    },
-                                    EdgeReq {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: PluginIDReq::Existing(
-                                            engine_state.graph_in_node_id.clone(),
-                                        ),
-                                        dst_plugin_id: PluginIDReq::Added(0),
-                                        src_channel: 1,
-                                        dst_channel: 1,
-                                    },
-                                    /*
-                                    EdgeReq {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: PluginIDReq::Added(0),
-                                        dst_plugin_id: PluginIDReq::Added(1),
-                                        src_channel: 0,
-                                        dst_channel: 0,
-                                    },
-                                    EdgeReq {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: PluginIDReq::Added(0),
-                                        dst_plugin_id: PluginIDReq::Added(1),
-                                        src_channel: 1,
-                                        dst_channel: 1,
-                                    },
-                                    */
-                                    EdgeReq {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: PluginIDReq::Added(0),
-                                        dst_plugin_id: PluginIDReq::Existing(
-                                            engine_state.graph_out_node_id.clone(),
-                                        ),
-                                        src_channel: 0,
-                                        dst_channel: 0,
-                                    },
-                                    EdgeReq {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: PluginIDReq::Added(0),
-                                        dst_plugin_id: PluginIDReq::Existing(
-                                            engine_state.graph_out_node_id.clone(),
-                                        ),
-                                        src_channel: 1,
-                                        dst_channel: 1,
-                                    },
-                                ],
-                                disconnect_edges: vec![],
-                                /*
-                                disconnect_edges: vec![
-                                    Edge {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: engine_state.graph_in_node_id.clone(),
-                                        dst_plugin_id: engine_state.graph_out_node_id.clone(),
-                                        src_channel: 0,
-                                        dst_channel: 0,
-                                    },
-                                    Edge {
-                                        edge_type: PortType::Audio,
-                                        src_plugin_id: engine_state.graph_in_node_id.clone(),
-                                        dst_plugin_id: engine_state.graph_out_node_id.clone(),
-                                        src_channel: 1,
-                                        dst_channel: 1,
-                                    },
-                                ],
-                                */
-                            };
-
-                            self.engine_handle.send(DSEngineRequest::ModifyGraph(req));
-                        }
                     }
                     unkown_event => {
                         dbg!(unkown_event);
@@ -524,7 +417,7 @@ impl BasicDawExampleGUI {
     }
 }
 
-impl eframe::App for BasicDawExampleGUI {
+impl eframe::App for DSExampleGUI {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.poll_updates();
 

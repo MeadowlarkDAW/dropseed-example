@@ -10,8 +10,10 @@ publish = false
 lto = true
 
 [dependencies]
-dropseed = { git = "https://github.com/MeadowlarkDAW/dropseed", branch = "main" }
-noise-generator-dropseed = { git = "https://github.com/MeadowlarkDAW/meadowlark-plugins", package = "noise-generator-dropseed", branch = "main" }
+#dropseed = { git = "https://github.com/MeadowlarkDAW/dropseed", branch = "main" }
+dropseed = { path = "../dropseed" }
+#noise-generator-dropseed = { git = "https://github.com/MeadowlarkDAW/meadowlark-plugins", package = "noise-generator-dropseed", branch = "main" }
+noise-generator-dropseed = { path = "../meadowlark-plugins/noise-generator/noise-generator-dropseed" }
 meadowlark-core-types = "0.1"
 eframe = "0.18"
 cpal = "0.13"

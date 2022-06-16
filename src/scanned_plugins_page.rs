@@ -2,9 +2,9 @@ use eframe::egui;
 
 use dropseed::DSEngineRequest;
 
-use super::BasicDawExampleGUI;
+use super::DSExampleGUI;
 
-pub(crate) fn show(app: &mut BasicDawExampleGUI, ui: &mut egui::Ui) {
+pub(crate) fn show(app: &mut DSExampleGUI, ui: &mut egui::Ui) {
     // TODO: Add/remove plugin paths.
 
     if ui.button("Rescan all plugin directories").clicked() {
@@ -36,16 +36,16 @@ pub(crate) fn show(app: &mut BasicDawExampleGUI, ui: &mut egui::Ui) {
                         ui.end_row();
 
                         for plugin in app.plugin_list.iter() {
-                            ui.label(&plugin.description.name);
-                            ui.label(&plugin.description.version);
-                            ui.label(&plugin.description.vendor);
-                            ui.label(format!("{}", plugin.format));
-                            ui.label(&plugin.format_version);
-                            ui.label(&plugin.description.description);
-                            ui.label(&plugin.description.id);
-                            ui.label(&plugin.description.url);
-                            ui.label(&plugin.description.manual_url);
-                            ui.label(&plugin.description.support_url);
+                            ui.label(&plugin.0.description.name);
+                            ui.label(&plugin.0.description.version);
+                            ui.label(&plugin.0.description.vendor);
+                            ui.label(format!("{}", plugin.0.format));
+                            ui.label(&plugin.0.format_version);
+                            ui.label(&plugin.0.description.description);
+                            ui.label(&plugin.0.description.id);
+                            ui.label(&plugin.0.description.url);
+                            ui.label(&plugin.0.description.manual_url);
+                            ui.label(&plugin.0.description.support_url);
                             ui.end_row();
                         }
                     });

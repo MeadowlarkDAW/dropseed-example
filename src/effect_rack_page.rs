@@ -1,11 +1,11 @@
 use dropseed::{
-    Edge, ParamID, ParamInfoFlags, ParamModifiedInfo, PluginEdges, PluginHandle, PluginInstanceID,
-    PortType,
+    DSEngineHandle, Edge, ModifyGraphRequest, ParamID, ParamInfoFlags, ParamModifiedInfo,
+    PluginEdges, PluginHandle, PluginInstanceID, PortType,
 };
 use eframe::egui;
 use fnv::FnvHashMap;
 
-use super::BasicDawExampleGUI;
+use super::DSExampleGUI;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PortChannel {
@@ -185,12 +185,15 @@ impl EffectRackPluginState {
 }
 
 pub struct EffectRackState {
+    pub selected_to_add_plugin_i: Option<usize>,
+
     pub plugins: Vec<EffectRackPluginState>,
 }
 
 impl EffectRackState {
     pub fn new() -> Self {
         Self {
+            selected_to_add_plugin_i: None,
             plugins: Vec::new(),
         }
     }
@@ -231,9 +234,49 @@ impl EffectRackState {
     }
 }
 
-pub(crate) fn show(app: &mut BasicDawExampleGUI, ui: &mut egui::Ui) {
+pub(crate) fn show(app: &mut DSExampleGUI, ui: &mut egui::Ui) {
     if let Some(engine_state) = &mut app.engine_state {
-        // TODO: Let the user add/remove plugins in this GUI.
+        ui.horizontal(|ui| {
+            let selected_text =
+                if let Some(plugin_i) = engine_state.effect_rack_state.selected_to_add_plugin_i {
+                    &app.plugin_list[plugin_i].1
+                } else {
+                    "<select a plugin>"
+                };
+
+            egui::ComboBox::from_id_source("plugin_to_add")
+                .selected_text(selected_text)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut engine_state.effect_rack_state.selected_to_add_plugin_i,
+                        None,
+                        "<select a plugin>",
+                    );
+
+                    for (plugin_i, plugin) in app.plugin_list.iter().enumerate() {
+                        ui.selectable_value(
+                            &mut engine_state.effect_rack_state.selected_to_add_plugin_i,
+                            Some(plugin_i),
+                            &plugin.1,
+                        );
+                    }
+                });
+
+            if ui.button("Add Plugin").clicked() {
+                if let Some(plugin_i) = engine_state.effect_rack_state.selected_to_add_plugin_i {
+                    let key = app.plugin_list[plugin_i].0.key.clone();
+
+                    let request = ModifyGraphRequest {
+                        add_plugin_instances: vec![(key, None)],
+                        remove_plugin_instances: vec![],
+                        connect_new_edges: vec![],
+                        disconnect_edges: vec![],
+                    };
+
+                    app.engine_handle.send(request.into());
+                }
+            }
+        });
 
         for (plugin_i, plugin) in engine_state
             .effect_rack_state
@@ -241,184 +284,195 @@ pub(crate) fn show(app: &mut BasicDawExampleGUI, ui: &mut egui::Ui) {
             .iter_mut()
             .enumerate()
         {
-            egui::Frame::default()
-                .inner_margin(egui::style::Margin::same(10.0))
-                .outer_margin(egui::style::Margin::same(5.0))
-                .fill(egui::Color32::from_gray(15))
-                .stroke(egui::Stroke::new(1.0, egui::Color32::from_gray(100)))
-                .show(ui, |ui| {
-                    egui::ScrollArea::vertical()
-                        .id_source(&format!("plugin{}hscroll", plugin_i))
-                        .show(ui, |ui| {
-                            // TODO: Let the user activate/deactive the plugin in this GUI.
-
-                            if plugin.active_state.is_some() {
-                                ui.colored_label(egui::Color32::GREEN, "activated");
-                            } else {
-                                ui.colored_label(egui::Color32::RED, "deactivated");
-                            }
-
-                            ui.label(&plugin.plugin_name);
-                            ui.label(&format!("id: {:?}", plugin.plugin_id));
-
-                            ui.separator();
-
-                            if let Some(active_state) = &mut plugin.active_state {
-                                ui.label("audio in");
-                                let mut channel_i = 0;
-                                for (port_i, port) in
-                                    active_state.handle.audio_ports().inputs.iter().enumerate()
-                                {
-                                    ui.horizontal(|ui| {
-                                        ui.label(
-                                            port.display_name
-                                                .as_ref()
-                                                .unwrap_or(&format!("{}", port_i)),
-                                        );
-
-                                        for _ in 0..port.channels {
-                                            ui.selectable_value(
-                                                &mut active_state.selected_port,
-                                                PortChannel::AudioIn(channel_i),
-                                                &format!("{}", channel_i),
-                                            );
-
-                                            channel_i += 1;
-                                        }
-                                    });
-                                }
-
-                                ui.separator();
-
-                                ui.label("audio out");
-                                let mut channel_i = 0;
-                                for (port_i, port) in
-                                    active_state.handle.audio_ports().outputs.iter().enumerate()
-                                {
-                                    ui.horizontal(|ui| {
-                                        ui.label(
-                                            port.display_name
-                                                .as_ref()
-                                                .unwrap_or(&format!("{}", port_i)),
-                                        );
-
-                                        for _ in 0..port.channels {
-                                            ui.selectable_value(
-                                                &mut active_state.selected_port,
-                                                PortChannel::AudioOut(channel_i),
-                                                &format!("{}", channel_i),
-                                            );
-
-                                            channel_i += 1;
-                                        }
-                                    });
-                                }
-
-                                ui.separator();
-
-                                // TODO: Let the user add/remove connections in this GUI.
-
-                                ui.label("connections on port");
-                                match active_state.selected_port {
-                                    PortChannel::AudioIn(channel_i) => {
-                                        if let Some(edges) = active_state
-                                            .audio_ports_state
-                                            .audio_in_edges
-                                            .get(channel_i)
-                                        {
-                                            for edge in edges.iter() {
-                                                ui.label(&format!(
-                                                    "{:?} port {}",
-                                                    edge.src_plugin_id, edge.src_channel
-                                                ));
-                                            }
-                                        }
-                                    }
-                                    PortChannel::AudioOut(channel_i) => {
-                                        if let Some(edges) = active_state
-                                            .audio_ports_state
-                                            .audio_out_edges
-                                            .get(channel_i)
-                                        {
-                                            for edge in edges.iter() {
-                                                ui.label(&format!(
-                                                    "{:?} port {}",
-                                                    edge.dst_plugin_id, edge.dst_channel
-                                                ));
-                                            }
-                                        }
-                                    }
-                                    PortChannel::None => {}
-                                }
-
-                                ui.separator();
-
-                                let mut values_to_set: Vec<(ParamID, f64)> = Vec::new();
-
-                                for param in active_state.params_state.params.values_mut() {
-                                    if param.is_hidden {
-                                        continue;
-                                    }
-
-                                    if param.is_read_only {
-                                        ui.horizontal(|ui| {
-                                            ui.label(&format!(
-                                                "{}: {:.8}",
-                                                &param.display_name, param.value
-                                            ));
-                                        });
-
-                                        continue;
-                                    }
-
-                                    ui.horizontal(|ui| {
-                                        if param.is_stepped {
-                                            let mut value: i64 = param.value.round() as i64;
-                                            let min_value: i64 = param.min_value.round() as i64;
-                                            let max_value: i64 = param.max_value.round() as i64;
-
-                                            if ui
-                                                .add(
-                                                    egui::Slider::new(
-                                                        &mut value,
-                                                        min_value..=max_value,
-                                                    )
-                                                    .text(&param.display_name),
-                                                )
-                                                .changed()
-                                            {
-                                                values_to_set.push((param.id, value as f64));
-                                                param.value = value as f64;
-                                            }
-                                        } else {
-                                            if ui
-                                                .add(
-                                                    egui::Slider::new(
-                                                        &mut param.value,
-                                                        param.min_value..=param.max_value,
-                                                    )
-                                                    .text(&param.display_name),
-                                                )
-                                                .changed()
-                                            {
-                                                values_to_set.push((param.id, param.value))
-                                            }
-                                        }
-
-                                        if param.is_gesturing {
-                                            ui.colored_label(egui::Color32::GREEN, "Gesturing");
-                                        }
-                                    });
-                                }
-
-                                for (param_id, value) in values_to_set.drain(..) {
-                                    active_state.handle.params.set_value(param_id, value);
-                                }
-                            }
-                        });
-                });
+            show_effect_rack_plugin(ui, plugin_i, plugin, &mut app.engine_handle);
         }
     } else {
         ui.label("Audio engine is deactivated");
     }
+}
+
+pub(crate) fn show_effect_rack_plugin(
+    ui: &mut egui::Ui,
+    plugin_i: usize,
+    plugin: &mut EffectRackPluginState,
+    engine_handle: &mut DSEngineHandle,
+) {
+    egui::Frame::default()
+        .inner_margin(egui::style::Margin::same(10.0))
+        .outer_margin(egui::style::Margin::same(5.0))
+        .fill(egui::Color32::from_gray(15))
+        .stroke(egui::Stroke::new(1.0, egui::Color32::from_gray(100)))
+        .show(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .id_source(&format!("plugin{}hscroll", plugin_i))
+                .show(ui, |ui| {
+                    if ui.small_button("x").clicked() {
+                        let request = ModifyGraphRequest {
+                            add_plugin_instances: vec![],
+                            remove_plugin_instances: vec![plugin.plugin_id.clone()],
+                            connect_new_edges: vec![],
+                            disconnect_edges: vec![],
+                        };
+
+                        engine_handle.send(request.into());
+                    }
+
+                    // TODO: Let the user activate/deactive the plugin in this GUI.
+
+                    if plugin.active_state.is_some() {
+                        ui.colored_label(egui::Color32::GREEN, "activated");
+                    } else {
+                        ui.colored_label(egui::Color32::RED, "deactivated");
+                    }
+
+                    ui.label(&plugin.plugin_name);
+                    ui.label(&format!("id: {:?}", plugin.plugin_id));
+
+                    ui.separator();
+
+                    if let Some(active_state) = &mut plugin.active_state {
+                        ui.label("audio in");
+                        let mut channel_i = 0;
+                        for (port_i, port) in
+                            active_state.handle.audio_ports().inputs.iter().enumerate()
+                        {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    port.display_name.as_ref().unwrap_or(&format!("{}", port_i)),
+                                );
+
+                                for _ in 0..port.channels {
+                                    ui.selectable_value(
+                                        &mut active_state.selected_port,
+                                        PortChannel::AudioIn(channel_i),
+                                        &format!("{}", channel_i),
+                                    );
+
+                                    channel_i += 1;
+                                }
+                            });
+                        }
+
+                        ui.separator();
+
+                        ui.label("audio out");
+                        let mut channel_i = 0;
+                        for (port_i, port) in
+                            active_state.handle.audio_ports().outputs.iter().enumerate()
+                        {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    port.display_name.as_ref().unwrap_or(&format!("{}", port_i)),
+                                );
+
+                                for _ in 0..port.channels {
+                                    ui.selectable_value(
+                                        &mut active_state.selected_port,
+                                        PortChannel::AudioOut(channel_i),
+                                        &format!("{}", channel_i),
+                                    );
+
+                                    channel_i += 1;
+                                }
+                            });
+                        }
+
+                        ui.separator();
+
+                        // TODO: Let the user add/remove connections in this GUI.
+
+                        ui.label("connections on port");
+                        match active_state.selected_port {
+                            PortChannel::AudioIn(channel_i) => {
+                                if let Some(edges) =
+                                    active_state.audio_ports_state.audio_in_edges.get(channel_i)
+                                {
+                                    for edge in edges.iter() {
+                                        ui.label(&format!(
+                                            "{:?} port {}",
+                                            edge.src_plugin_id, edge.src_channel
+                                        ));
+                                    }
+                                }
+                            }
+                            PortChannel::AudioOut(channel_i) => {
+                                if let Some(edges) = active_state
+                                    .audio_ports_state
+                                    .audio_out_edges
+                                    .get(channel_i)
+                                {
+                                    for edge in edges.iter() {
+                                        ui.label(&format!(
+                                            "{:?} port {}",
+                                            edge.dst_plugin_id, edge.dst_channel
+                                        ));
+                                    }
+                                }
+                            }
+                            PortChannel::None => {}
+                        }
+
+                        ui.separator();
+
+                        let mut values_to_set: Vec<(ParamID, f64)> = Vec::new();
+
+                        for param in active_state.params_state.params.values_mut() {
+                            if param.is_hidden {
+                                continue;
+                            }
+
+                            if param.is_read_only {
+                                ui.horizontal(|ui| {
+                                    ui.label(&format!(
+                                        "{}: {:.8}",
+                                        &param.display_name, param.value
+                                    ));
+                                });
+
+                                continue;
+                            }
+
+                            ui.horizontal(|ui| {
+                                if param.is_stepped {
+                                    let mut value: i64 = param.value.round() as i64;
+                                    let min_value: i64 = param.min_value.round() as i64;
+                                    let max_value: i64 = param.max_value.round() as i64;
+
+                                    if ui
+                                        .add(
+                                            egui::Slider::new(&mut value, min_value..=max_value)
+                                                .text(&param.display_name),
+                                        )
+                                        .changed()
+                                    {
+                                        values_to_set.push((param.id, value as f64));
+                                        param.value = value as f64;
+                                    }
+                                } else {
+                                    if ui
+                                        .add(
+                                            egui::Slider::new(
+                                                &mut param.value,
+                                                param.min_value..=param.max_value,
+                                            )
+                                            .text(&param.display_name),
+                                        )
+                                        .changed()
+                                    {
+                                        values_to_set.push((param.id, param.value))
+                                    }
+                                }
+
+                                if param.is_gesturing {
+                                    ui.colored_label(egui::Color32::GREEN, "Gesturing");
+                                }
+                            });
+                        }
+
+                        for (param_id, value) in values_to_set.drain(..) {
+                            active_state.handle.params.set_value(param_id, value);
+                        }
+                    }
+                });
+        });
 }
