@@ -76,11 +76,11 @@ fn main() {
         )
         .unwrap();
 
-    // ---  Initialize RustyDAW Engine  -------------------------------------------
+    // ---  Initialize Dropseed Engine  -------------------------------------------
 
     let (mut engine_handle, engine_rx) = DSEngineHandle::new(
         HostInfo::new(
-            String::from("RustyDAW integration test"),
+            String::from("Dropseed Example"),
             String::from("0.1.0"),
             None,
             None,
@@ -107,7 +107,7 @@ fn main() {
 
     let options = eframe::NativeOptions::default();
     eframe::run_native(
-        "Basic DAW Example",
+        "Dropseed Example",
         options,
         Box::new(move |cc| {
             cc.egui_ctx.set_visuals(egui::Visuals::dark());
