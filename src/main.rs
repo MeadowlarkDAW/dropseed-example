@@ -97,6 +97,7 @@ fn main() {
             max_frames: MAX_BLOCK_SIZE,
             num_audio_in_channels: GRAPH_IN_CHANNELS,
             num_audio_out_channels: GRAPH_OUT_CHANNELS,
+            ..Default::default()
         },
     )));
 
@@ -298,9 +299,7 @@ impl DSExampleGUI {
                                 .unwrap();
 
                             if let Some(active_state) = &mut effect_rack_plugin.active_state {
-                                active_state
-                                    .audio_ports_state
-                                    .sync_with_new_edges(&plugin_edges);
+                                // TODO
                             }
                         }
                     }
@@ -452,6 +451,7 @@ impl eframe::App for DSExampleGUI {
                                         max_frames: MAX_BLOCK_SIZE,
                                         num_audio_in_channels: GRAPH_IN_CHANNELS,
                                         num_audio_out_channels: GRAPH_OUT_CHANNELS,
+                                        ..Default::default()
                                     },
                                 )));
                         }

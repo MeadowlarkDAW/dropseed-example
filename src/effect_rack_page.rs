@@ -1,75 +1,11 @@
 use dropseed::{
-    DSEngineHandle, Edge, ModifyGraphRequest, ParamID, ParamInfoFlags, ParamModifiedInfo,
-    PluginEdges, PluginHandle, PluginInstanceID, PortType,
+    DSEngineHandle, ModifyGraphRequest, ParamID, ParamInfoFlags, ParamModifiedInfo, PluginHandle,
+    PluginInstanceID,
 };
 use eframe::egui;
 use fnv::FnvHashMap;
 
 use super::DSExampleGUI;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PortChannel {
-    AudioIn(usize),
-    AudioOut(usize),
-    None,
-}
-
-impl Default for PortChannel {
-    fn default() -> Self {
-        PortChannel::AudioIn(0)
-    }
-}
-
-pub struct AudioPortState {
-    audio_in_edges: Vec<Vec<Edge>>,
-    audio_out_edges: Vec<Vec<Edge>>,
-}
-
-impl AudioPortState {
-    pub fn new(handle: &PluginHandle) -> Self {
-        let audio_in_edges: Vec<Vec<Edge>> = (0..handle.audio_ports().total_in_channels())
-            .map(|_| Vec::new())
-            .collect();
-        let audio_out_edges: Vec<Vec<Edge>> = (0..handle.audio_ports().total_out_channels())
-            .map(|_| Vec::new())
-            .collect();
-
-        Self {
-            audio_in_edges,
-            audio_out_edges,
-        }
-    }
-
-    pub fn sync_with_new_edges(&mut self, edges: &PluginEdges) {
-        for edges in self.audio_in_edges.iter_mut() {
-            edges.clear();
-        }
-        for edges in self.audio_out_edges.iter_mut() {
-            edges.clear();
-        }
-
-        for edge in edges.incoming.iter() {
-            match edge.edge_type {
-                PortType::Audio => {
-                    self.audio_in_edges[usize::from(edge.dst_channel)].push(edge.clone());
-                }
-                PortType::Event => {
-                    // TODO
-                }
-            }
-        }
-        for edge in edges.outgoing.iter() {
-            match edge.edge_type {
-                PortType::Audio => {
-                    self.audio_out_edges[usize::from(edge.src_channel)].push(edge.clone());
-                }
-                PortType::Event => {
-                    // TODO
-                }
-            }
-        }
-    }
-}
 
 pub struct ParamState {
     id: ParamID,
@@ -143,22 +79,16 @@ impl ParamsState {
 
 pub struct EffectRackPluginActiveState {
     pub handle: PluginHandle,
-    pub audio_ports_state: AudioPortState,
     pub params_state: ParamsState,
-
-    pub selected_port: PortChannel,
 }
 
 impl EffectRackPluginActiveState {
     pub fn new(handle: PluginHandle, param_values: FnvHashMap<ParamID, f64>) -> Self {
-        let audio_ports_state = AudioPortState::new(&handle);
         let params_state = ParamsState::new(&handle, param_values);
 
         Self {
             handle,
-            audio_ports_state,
             params_state,
-            selected_port: PortChannel::None,
         }
     }
 }
@@ -331,88 +261,7 @@ pub(crate) fn show_effect_rack_plugin(
                     ui.separator();
 
                     if let Some(active_state) = &mut plugin.active_state {
-                        ui.label("audio in");
-                        let mut channel_i = 0;
-                        for (port_i, port) in
-                            active_state.handle.audio_ports().inputs.iter().enumerate()
-                        {
-                            ui.horizontal(|ui| {
-                                ui.label(
-                                    port.display_name.as_ref().unwrap_or(&format!("{}", port_i)),
-                                );
-
-                                for _ in 0..port.channels {
-                                    ui.selectable_value(
-                                        &mut active_state.selected_port,
-                                        PortChannel::AudioIn(channel_i),
-                                        &format!("{}", channel_i),
-                                    );
-
-                                    channel_i += 1;
-                                }
-                            });
-                        }
-
-                        ui.separator();
-
-                        ui.label("audio out");
-                        let mut channel_i = 0;
-                        for (port_i, port) in
-                            active_state.handle.audio_ports().outputs.iter().enumerate()
-                        {
-                            ui.horizontal(|ui| {
-                                ui.label(
-                                    port.display_name.as_ref().unwrap_or(&format!("{}", port_i)),
-                                );
-
-                                for _ in 0..port.channels {
-                                    ui.selectable_value(
-                                        &mut active_state.selected_port,
-                                        PortChannel::AudioOut(channel_i),
-                                        &format!("{}", channel_i),
-                                    );
-
-                                    channel_i += 1;
-                                }
-                            });
-                        }
-
-                        ui.separator();
-
-                        // TODO: Let the user add/remove connections in this GUI.
-
-                        ui.label("connections on port");
-                        match active_state.selected_port {
-                            PortChannel::AudioIn(channel_i) => {
-                                if let Some(edges) =
-                                    active_state.audio_ports_state.audio_in_edges.get(channel_i)
-                                {
-                                    for edge in edges.iter() {
-                                        ui.label(&format!(
-                                            "{:?} port {}",
-                                            edge.src_plugin_id, edge.src_channel
-                                        ));
-                                    }
-                                }
-                            }
-                            PortChannel::AudioOut(channel_i) => {
-                                if let Some(edges) = active_state
-                                    .audio_ports_state
-                                    .audio_out_edges
-                                    .get(channel_i)
-                                {
-                                    for edge in edges.iter() {
-                                        ui.label(&format!(
-                                            "{:?} port {}",
-                                            edge.dst_plugin_id, edge.dst_channel
-                                        ));
-                                    }
-                                }
-                            }
-                            PortChannel::None => {}
-                        }
-
-                        ui.separator();
+                        // TODO: plugin ports
 
                         let mut values_to_set: Vec<(ParamID, f64)> = Vec::new();
 
