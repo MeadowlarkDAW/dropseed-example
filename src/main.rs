@@ -8,7 +8,7 @@ use dropseed::{
 };
 use eframe::egui;
 use meadowlark_core_types::SampleRate;
-use noise_generator_dropseed::NoiseGenPluginFactory;
+//use noise_generator_dropseed::NoiseGenPluginFactory;
 
 mod effect_rack_page;
 mod scanned_plugins_page;
@@ -85,7 +85,8 @@ fn main() {
             None,
             None,
         ),
-        vec![Box::new(NoiseGenPluginFactory {})],
+        //vec![Box::new(NoiseGenPluginFactory {})],
+        vec![],
     );
 
     dbg!(&engine_handle.internal_plugins_res);

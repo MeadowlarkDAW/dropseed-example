@@ -1,6 +1,6 @@
 use dropseed::{
-    DSEngineHandle, ModifyGraphRequest, ParamID, ParamInfoFlags, ParamModifiedInfo, PluginHandle,
-    PluginInstanceID,
+    plugin::PluginSaveState, DSEngineHandle, EdgeReq, EdgeReqPortID, ModifyGraphRequest, ParamID,
+    ParamInfoFlags, ParamModifiedInfo, PluginHandle, PluginIDReq, PluginInstanceID, PortType,
 };
 use eframe::egui;
 use fnv::FnvHashMap;
@@ -197,9 +197,58 @@ pub(crate) fn show(app: &mut DSExampleGUI, ui: &mut egui::Ui) {
                     let key = app.plugin_list[plugin_i].0.key.clone();
 
                     let request = ModifyGraphRequest {
-                        add_plugin_instances: vec![(key, None)],
+                        add_plugin_instances: vec![PluginSaveState::new_with_default_preset(key)],
                         remove_plugin_instances: vec![],
-                        connect_new_edges: vec![],
+                        connect_new_edges: vec![
+                            EdgeReq {
+                                edge_type: PortType::Audio,
+                                src_plugin_id: PluginIDReq::Existing(
+                                    engine_state.graph_in_node_id.clone(),
+                                ),
+                                dst_plugin_id: PluginIDReq::Added(0),
+                                src_port_id: EdgeReqPortID::Main,
+                                src_port_channel: 0,
+                                dst_port_id: EdgeReqPortID::Main,
+                                dst_port_channel: 0,
+                                log_error_on_fail: false,
+                            },
+                            EdgeReq {
+                                edge_type: PortType::Audio,
+                                src_plugin_id: PluginIDReq::Existing(
+                                    engine_state.graph_in_node_id.clone(),
+                                ),
+                                dst_plugin_id: PluginIDReq::Added(0),
+                                src_port_id: EdgeReqPortID::Main,
+                                src_port_channel: 1,
+                                dst_port_id: EdgeReqPortID::Main,
+                                dst_port_channel: 1,
+                                log_error_on_fail: false,
+                            },
+                            EdgeReq {
+                                edge_type: PortType::Audio,
+                                src_plugin_id: PluginIDReq::Added(0),
+                                dst_plugin_id: PluginIDReq::Existing(
+                                    engine_state.graph_out_node_id.clone(),
+                                ),
+                                src_port_id: EdgeReqPortID::Main,
+                                src_port_channel: 0,
+                                dst_port_id: EdgeReqPortID::Main,
+                                dst_port_channel: 0,
+                                log_error_on_fail: false,
+                            },
+                            EdgeReq {
+                                edge_type: PortType::Audio,
+                                src_plugin_id: PluginIDReq::Added(0),
+                                dst_plugin_id: PluginIDReq::Existing(
+                                    engine_state.graph_out_node_id.clone(),
+                                ),
+                                src_port_id: EdgeReqPortID::Main,
+                                src_port_channel: 1,
+                                dst_port_id: EdgeReqPortID::Main,
+                                dst_port_channel: 1,
+                                log_error_on_fail: false,
+                            },
+                        ],
                         disconnect_edges: vec![],
                     };
 
